@@ -1,4 +1,4 @@
-import numpy as np
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -11,8 +11,8 @@ print(mail_data)
 missing = mail_data.isnull().sum()
 print(missing)
 
-mail_data.loc[mail_data['Category'] == 'spam', 'Category',] = 0
-mail_data.loc[mail_data['Category'] == 'ham', 'Category',] = 1
+mail_data.loc[mail_data['label'] == 'spam', 'label',] = 1
+mail_data.loc[mail_data['label'] == 'ham', 'label',] = 0
 
 print(mail_data)
 
@@ -20,8 +20,8 @@ mail_data = mail_data.drop(mail_data.index[-1])
 
 print(mail_data)
 
-X = mail_data['Message']
-Y = mail_data['Category']
+X = mail_data['email']
+Y = mail_data['label']
 
 print(X)
 
@@ -52,7 +52,9 @@ prediction_on_training_data = model.predict(X_train_features)
 accuracy_on_training_data = accuracy_score(Y_train, prediction_on_training_data)
 
 print('Accuracy on training data : ', accuracy_on_training_data)
-
+predict = model.predict(X_test_features)
+accuracy_on_test = accuracy_score(Y_test, predict)
+print("predict", accuracy_on_test)
 import joblib
 
 joblib.dump(model, "model.pkl")

@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { email, deleteEmail
+const { email,
 } = require('../controller/email');
+const {
+    isAuthenticated
+} = require('../middleware/authentication')
+router.get('/get',email);
 
-router.get('/emails', email);
-router.post('/emails/delete', deleteEmail);
 
 module.exports = router;

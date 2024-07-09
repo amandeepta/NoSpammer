@@ -5,7 +5,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
-mail_data = pd.read_csv('email.csv')
+mail_data = pd.read_csv('email.csv', encoding='ISO-8859-1')
 print(mail_data)
 
 missing = mail_data.isnull().sum()
@@ -16,11 +16,7 @@ mail_data.loc[mail_data['label'] == 'ham', 'label',] = 0
 
 print(mail_data)
 
-mail_data = mail_data.drop(mail_data.index[-1])
-
-print(mail_data)
-
-X = mail_data['email']
+X = mail_data['text']
 Y = mail_data['label']
 
 print(X)

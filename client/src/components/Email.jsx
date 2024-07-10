@@ -6,6 +6,7 @@ import { AiOutlineMail } from 'react-icons/ai';
 const Email = () => {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchEmails();
@@ -19,9 +20,15 @@ const Email = () => {
       setEmails(response.data);
     } catch (error) {
       console.error('Error fetching emails:', error);
+      setError('Oops! An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
   return (
@@ -32,13 +39,20 @@ const Email = () => {
           <FiLoader className="animate-spin text-4xl text-blue-500" />
           <span className="ml-4 text-xl">Loading emails...</span>
         </div>
+      ) : error ? (
+        <div className="flex justify-center items-center h-full">
+          <span className="text-xl text-red-500">{error}</span>
+        </div>
       ) : (
         <ul className="divide-y divide-gray-200">
           {emails.map((email) => (
             <li key={email.id} className="py-4">
               <div className="flex items-center space-x-4">
                 <AiOutlineMail className="text-4xl text-blue-500" />
-                <span className="text-lg">{email.snippet}</span>
+                <div>
+                  <span className="block text-lg">{email.snippet}</span>
+                  <span className="block text-gray-500 text-sm">{formatDate(email.receivedDate)}</span>
+                </div>
               </div>
             </li>
           ))}

@@ -9,6 +9,7 @@ const Email = () => {
   const [error, setError] = useState(null);
   const [nextPageToken, setNextPageToken] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+
   useEffect(() => {
     fetchEmails();
   }, []);
@@ -21,7 +22,6 @@ const Email = () => {
       });
       const { messages, nextPageToken } = response.data;
 
-      // Append new emails to existing emails list
       setEmails(prevEmails => [...prevEmails, ...messages]);
       setNextPageToken(nextPageToken);
       setLoadingMore(false);
@@ -34,7 +34,6 @@ const Email = () => {
   };
 
   const loadMoreEmails = () => {
-    
     if (nextPageToken) {
       setLoadingMore(true);
       fetchEmails(nextPageToken);
@@ -47,8 +46,8 @@ const Email = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-5">
-      <h2 className="text-3xl font-bold mb-5 text-center">Emails</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-blue-200 p-5">
+      <h2 className="text-3xl font-bold mb-5 text-center text-blue-900">Emails</h2>
       {loading ? (
         <div className="flex justify-center items-center h-full">
           <FiLoader className="animate-spin text-4xl text-blue-500" />
@@ -60,13 +59,13 @@ const Email = () => {
         </div>
       ) : (
         <>
-          <ul className="divide-y divide-gray-200">
-            {emails.map((email,index) => (
-              <li key={`${email.id}-${index}`} className="py-4">
+          <ul className="space-y-4">
+            {emails.map((email, index) => (
+              <li key={`${email.id}-${index}`} className="bg-white shadow-md rounded-lg p-4 transition-transform transform hover:scale-90">
                 <div className="flex items-center space-x-4">
                   <AiOutlineMail className="text-4xl text-blue-500" />
                   <div>
-                    <span className="block text-lg">{email.snippet}</span>
+                    <span className="block text-lg font-semibold text-gray-800">{email.snippet}</span>
                     <span className="block text-gray-500 text-sm">{formatDate(email.receivedDate)}</span>
                   </div>
                 </div>
@@ -77,7 +76,7 @@ const Email = () => {
             <div className="flex justify-center mt-4">
               <button
                 onClick={loadMoreEmails}
-                className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg focus:outline-none ${loadingMore ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg shadow-lg focus:outline-none transition-opacity duration-300 ${loadingMore ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={loadingMore}
               >
                 {loadingMore ? 'Loading...' : 'Load More'}

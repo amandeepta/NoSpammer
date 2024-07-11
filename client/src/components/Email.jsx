@@ -8,7 +8,7 @@ const Email = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nextPageToken, setNextPageToken] = useState(null);
-
+  const [loadingMore, setLoadingMore] = useState(false);
   useEffect(() => {
     fetchEmails();
   }, []);
@@ -24,6 +24,7 @@ const Email = () => {
       // Append new emails to existing emails list
       setEmails(prevEmails => [...prevEmails, ...messages]);
       setNextPageToken(nextPageToken);
+      setLoadingMore(false);
     } catch (error) {
       console.error('Error fetching emails:', error);
       setError('Oops! An error occurred. Please try again.');
@@ -33,7 +34,9 @@ const Email = () => {
   };
 
   const loadMoreEmails = () => {
+    
     if (nextPageToken) {
+      setLoadingMore(true);
       fetchEmails(nextPageToken);
     }
   };
@@ -74,9 +77,10 @@ const Email = () => {
             <div className="flex justify-center mt-4">
               <button
                 onClick={loadMoreEmails}
-                className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg focus:outline-none"
+                className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg focus:outline-none ${loadingMore ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={loadingMore}
               >
-                Load More
+                {loadingMore ? 'Loading...' : 'Load More'}
               </button>
             </div>
           )}

@@ -3,10 +3,19 @@ const axios = require('axios');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { fetchMessages } = require('./fetchmessages');
 
 const executePython = async (script, input) => {
     const tempFilePath = path.join(__dirname, 'temp_emails.json');
+    
+    // Log the path where the file will be created
+    console.log(`Creating temp file at: ${tempFilePath}`);
     fs.writeFileSync(tempFilePath, JSON.stringify(input));
+
+    // Check if the file exists after writing
+    if (!fs.existsSync(tempFilePath)) {
+        throw new Error(`Failed to create temp file at ${tempFilePath}`);
+    }
 
     return new Promise((resolve, reject) => {
         const py = spawn("python", [script, tempFilePath]);
@@ -41,27 +50,31 @@ const executePython = async (script, input) => {
     });
 };
 
-const fetchMessages = async (accessToken, pageToken = null, maxResults = 50) => {
-    const response = await axios.get('https://www.googleapis.com/gmail/v1/users/me/messages', {
-        params: {
-            pageToken,
-            maxResults,
-        },
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-        timeout: 100000,
-    });
-    return response.data;
-};
+const fetchMessageDetails = async (accessToken, messageId, retries = 5) => {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const fetchMessageDetails = async (accessToken, messageId) => {
-    const response = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`, {
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-        },
-    });
-    return response.data;
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+            return response.data;
+        } catch (error) {
+            if (error.response && error.response.status === 429) {
+                const retryAfter = error.response.headers['retry-after']
+                    ? parseInt(error.response.headers['retry-after']) * 1000
+                    : (2 ** i) * 1000;
+                console.warn(`Rate limit exceeded. Retrying after ${retryAfter}ms...`);
+                await delay(retryAfter);
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    throw new Error(`Failed to fetch message details after ${retries} retries`);
 };
 
 exports.email = async (req, res) => {
@@ -74,10 +87,10 @@ exports.email = async (req, res) => {
     }
 
     const accessToken = req.user.accessToken;
-    const { pageToken } = req.query; // Extract pageToken from query parameters
+    const { pageToken } = req.query;
 
     try {
-        const response = await fetchMessages(accessToken, pageToken, 50); // Fetch messages based on pageToken
+        const response = await fetchMessages(accessToken, pageToken, 50);
 
         if (!response || !response.messages) {
             return res.status(404).json({ message: 'No messages found.' });
@@ -87,23 +100,25 @@ exports.email = async (req, res) => {
         const allMessages = [];
 
         for (const message of messages) {
-            const fullMessage = await fetchMessageDetails(accessToken, message.id);
-            allMessages.push(fullMessage);
+            try {
+                const fullMessage = await fetchMessageDetails(accessToken, message.id);
+                allMessages.push(fullMessage);
+            } catch (error) {
+                console.error('Error fetching message details:', error);
+            }
         }
 
         const predictions = await executePython('../model/predict.py', allMessages);
         const filteredMessages = allMessages.filter((_, index) => predictions[index] === 1);
 
-        // Prepare data to send to frontend
         const filteredMessagesWithDate = filteredMessages.map(message => ({
             ...message,
-            receivedDate: new Date(parseInt(message.internalDate)), // Convert internalDate to Date object
+            receivedDate: new Date(parseInt(message.internalDate)),
         }));
 
-        // Construct response object with filtered messages and nextPageToken
         const responseToSend = {
             messages: filteredMessagesWithDate,
-            nextPageToken: response.nextPageToken // Include nextPageToken in response
+            nextPageToken: response.nextPageToken
         };
 
         res.json(responseToSend);

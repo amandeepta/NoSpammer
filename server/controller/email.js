@@ -41,6 +41,29 @@ const executePython = async (script, input) => {
     });
 };
 
+const fetchMessages = async (accessToken, pageToken = null, maxResults = 50) => {
+    const response = await axios.get('https://www.googleapis.com/gmail/v1/users/me/messages', {
+        params: {
+            pageToken,
+            maxResults,
+        },
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+        timeout: 100000,
+    });
+    return response.data;
+};
+
+const fetchMessageDetails = async (accessToken, messageId) => {
+    const response = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+    return response.data;
+};
+
 exports.email = async (req, res) => {
     if (!req.isAuthenticated()) {
         return res.redirect('/auth/google');
@@ -51,40 +74,22 @@ exports.email = async (req, res) => {
     }
 
     const accessToken = req.user.accessToken;
-    let allMessages = [];
-    let nextPageToken = null;
+    const { pageToken } = req.query; // Extract pageToken from query parameters
 
     try {
-        let x = 1;
-        do {
-            const response = await axios.get('https://www.googleapis.com/gmail/v1/users/me/messages', {
-                params: {
-                    pageToken: nextPageToken,
-                    maxResults: 100,
-                },
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-                timeout: 50000
-            });
+        const response = await fetchMessages(accessToken, pageToken, 50); // Fetch messages based on pageToken
 
-            if (!response.data || !response.data.messages) {
-                return res.status(404).json({ message: 'No messages found.' });
-            }
+        if (!response || !response.messages) {
+            return res.status(404).json({ message: 'No messages found.' });
+        }
 
-            const messages = response.data.messages;
-            const fullMessages = await Promise.all(messages.map(async (message) => {
-                const msgResponse = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${message.id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                    }
-                });
-                return msgResponse.data;
-            }));
+        const messages = response.messages;
+        const allMessages = [];
 
-            allMessages = allMessages.concat(fullMessages);
-            nextPageToken = response.data.nextPageToken;
-        } while (x--);
+        for (const message of messages) {
+            const fullMessage = await fetchMessageDetails(accessToken, message.id);
+            allMessages.push(fullMessage);
+        }
 
         const predictions = await executePython('../model/predict.py', allMessages);
         const filteredMessages = allMessages.filter((_, index) => predictions[index] === 1);
@@ -95,7 +100,13 @@ exports.email = async (req, res) => {
             receivedDate: new Date(parseInt(message.internalDate)), // Convert internalDate to Date object
         }));
 
-        res.json(filteredMessagesWithDate);
+        // Construct response object with filtered messages and nextPageToken
+        const responseToSend = {
+            messages: filteredMessagesWithDate,
+            nextPageToken: response.nextPageToken // Include nextPageToken in response
+        };
+
+        res.json(responseToSend);
     } catch (error) {
         console.error('Error retrieving emails:', error);
         res.status(500).json({ message: 'Oops! An error occurred. Please try again.' });

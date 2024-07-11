@@ -7,22 +7,34 @@ const Email = () => {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [nextPageToken, setNextPageToken] = useState(null);
 
   useEffect(() => {
     fetchEmails();
   }, []);
 
-  const fetchEmails = async () => {
+  const fetchEmails = async (pageToken = null) => {
     try {
-      const response = await axios.get('http://localhost:5000/emails/get', {
+      const url = pageToken ? `http://localhost:5000/emails/get?pageToken=${pageToken}` : 'http://localhost:5000/emails/get';
+      const response = await axios.get(url, {
         withCredentials: true
       });
-      setEmails(response.data);
+      const { messages, nextPageToken } = response.data;
+
+      // Append new emails to existing emails list
+      setEmails(prevEmails => [...prevEmails, ...messages]);
+      setNextPageToken(nextPageToken);
     } catch (error) {
       console.error('Error fetching emails:', error);
       setError('Oops! An error occurred. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreEmails = () => {
+    if (nextPageToken) {
+      fetchEmails(nextPageToken);
     }
   };
 
@@ -44,19 +56,31 @@ const Email = () => {
           <span className="text-xl text-red-500">{error}</span>
         </div>
       ) : (
-        <ul className="divide-y divide-gray-200">
-          {emails.map((email) => (
-            <li key={email.id} className="py-4">
-              <div className="flex items-center space-x-4">
-                <AiOutlineMail className="text-4xl text-blue-500" />
-                <div>
-                  <span className="block text-lg">{email.snippet}</span>
-                  <span className="block text-gray-500 text-sm">{formatDate(email.receivedDate)}</span>
+        <>
+          <ul className="divide-y divide-gray-200">
+            {emails.map((email,index) => (
+              <li key={`${email.id}-${index}`} className="py-4">
+                <div className="flex items-center space-x-4">
+                  <AiOutlineMail className="text-4xl text-blue-500" />
+                  <div>
+                    <span className="block text-lg">{email.snippet}</span>
+                    <span className="block text-gray-500 text-sm">{formatDate(email.receivedDate)}</span>
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+          {nextPageToken && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={loadMoreEmails}
+                className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg focus:outline-none"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

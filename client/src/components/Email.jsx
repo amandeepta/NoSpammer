@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import { FiLoader } from 'react-icons/fi';
 import { AiOutlineMail } from 'react-icons/ai';
 
@@ -14,7 +15,17 @@ const Email = () => {
     fetchEmails();
   }, []);
 
+  axiosRetry(axios, {
+    retries: 3, 
+    retryDelay: axiosRetry.exponentialDelay, 
+    shouldResetTimeout: true, 
+    retryCondition: (error) => {
+      return axiosRetry.isNetworkError(error) || axiosRetry.isRetryableError(error); 
+    }
+  });
+
   const fetchEmails = async (pageToken = null) => {
+    setLoading(pageToken === null);
     try {
       const url = pageToken ? `http://localhost:5000/emails/get?pageToken=${pageToken}` : 'http://localhost:5000/emails/get';
       const response = await axios.get(url, {
@@ -22,14 +33,18 @@ const Email = () => {
       });
       const { messages, nextPageToken } = response.data;
 
-      setEmails(prevEmails => [...prevEmails, ...messages]);
+      setEmails(prevEmails => {
+        const existingIds = new Set(prevEmails.map(email => email.id));
+        const newEmails = messages.filter(email => !existingIds.has(email.id));
+        return [...prevEmails, ...newEmails];
+      });
       setNextPageToken(nextPageToken);
-      setLoadingMore(false);
     } catch (error) {
       console.error('Error fetching emails:', error);
       setError('Oops! An error occurred. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 

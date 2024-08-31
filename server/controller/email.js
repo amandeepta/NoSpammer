@@ -5,14 +5,15 @@ const fs = require('fs');
 const path = require('path');
 const { fetchMessages } = require('./fetchmessages');
 
+
+const tempFilePath = path.join(__dirname, 'temp_emails.json');
+
 const executePython = async (script, input) => {
-    const tempFilePath = path.join(__dirname, 'temp_emails.json');
     
-    // Log the path where the file will be created
     console.log(`Creating temp file at: ${tempFilePath}`);
+    
     fs.writeFileSync(tempFilePath, JSON.stringify(input));
 
-    // Check if the file exists after writing
     if (!fs.existsSync(tempFilePath)) {
         throw new Error(`Failed to create temp file at ${tempFilePath}`);
     }
@@ -50,31 +51,18 @@ const executePython = async (script, input) => {
     });
 };
 
-const fetchMessageDetails = async (accessToken, messageId, retries = 5) => {
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    for (let i = 0; i < retries; i++) {
-        try {
-            const response = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`, {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            });
-            return response.data;
-        } catch (error) {
-            if (error.response && error.response.status === 429) {
-                const retryAfter = error.response.headers['retry-after']
-                    ? parseInt(error.response.headers['retry-after']) * 1000
-                    : (2 ** i) * 1000;
-                console.warn(`Rate limit exceeded. Retrying after ${retryAfter}ms...`);
-                await delay(retryAfter);
-            } else {
-                throw error;
-            }
-        }
+const fetchMessageDetails = async (accessToken, messageId) => {
+    try {
+        const response = await axios.get(`https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}`, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching message details:', error);
+        throw error;
     }
-
-    throw new Error(`Failed to fetch message details after ${retries} retries`);
 };
 
 exports.email = async (req, res) => {
